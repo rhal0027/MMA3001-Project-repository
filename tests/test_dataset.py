@@ -151,3 +151,24 @@ def test_find_near_duplicates_ignores_names_and_matches_content(tmp_path):
     assert matches[0]["query"].name == "Y_jpg.rf.2.png"
     assert matches[0]["match"].name == "X_jpg.rf.1.png"
     assert matches[0]["query_split"] == "test" and matches[0]["match_split"] == "train"
+
+
+def test_hash_calibration_separates_known_copies(tmp_path):
+    imgs = tmp_path / "train" / "images"
+    imgs.mkdir(parents=True)
+    for seed in (1, 2, 3):                      # three trays, two copies each
+        _noise_image(imgs / f"T{seed}_jpg.rf.a.png", seed=seed)
+        _noise_image(imgs / f"T{seed}_jpg.rf.b.png", seed=seed, brightness=1.2)
+    cal = ds.hash_calibration(tmp_path, size=16)
+    assert len(cal["same"]) == 3                # one pair per tray
+    assert len(cal["different"]) == 6           # one nearest-other per image
+    assert max(cal["same"]) < min(cal["different"])
+
+
+def test_find_near_duplicates_accepts_larger_hash(tmp_path):
+    for split in ("train", "valid", "test"):
+        (tmp_path / split / "images").mkdir(parents=True)
+    _noise_image(tmp_path / "train" / "images" / "X.png", seed=10)
+    _noise_image(tmp_path / "test" / "images" / "Y.png", seed=10, brightness=1.2)
+    m = ds.find_near_duplicates(tmp_path, max_distance=20, size=16)
+    assert len(m) == 1

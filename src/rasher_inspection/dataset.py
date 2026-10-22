@@ -332,12 +332,57 @@ def hamming(a: int, b: int) -> int:
         >>> hamming(0b1011, 0b0010)
         2
     """
-    return bin(a ^ b).count("1")
+    return (a ^ b).bit_count()
+
+
+def hash_calibration(root: str | Path, split: str = "train", size: int = 8,
+                     max_images: int | None = None, seed: int = 0) -> dict[str, list[int]]:
+    """Measure dHash distances for known-same and known-different photos.
+
+    Augmented copies in the training split share a :func:`source_id`, so they
+    are known to be the *same* photo. This gives labelled examples to check
+    whether :func:`dhash` can separate duplicates from different trays, and to
+    choose a threshold for :func:`find_near_duplicates` from evidence.
+
+    Args:
+        root: Dataset root folder.
+        split: Split containing augmented copies (normally ``"train"``).
+        size: Hash grid size passed to :func:`dhash`.
+        max_images: Optional random subset size, to keep the run short.
+        seed: Seed for the subset.
+
+    Returns:
+        ``{"same": [...], "different": [...]}``. ``same`` holds the distance for
+        every pair of copies with the same source id. ``different`` holds, for
+        each image, the distance to its closest image with a *different*
+        source id (the hardest negative). The two should not overlap if the
+        hash is usable.
+    """
+    images = list_images(root, split)
+    if max_images is not None and max_images < len(images):
+        images = sample_for_review(images, max_images, seed=seed)
+    hashed = [(source_id(p), dhash(p, size)) for p in images]
+
+    same, different = [], []
+    for i, (si, hi) in enumerate(hashed):
+        closest_other = None
+        for j, (sj, hj) in enumerate(hashed):
+            if i == j:
+                continue
+            d = hamming(hi, hj)
+            if si == sj:
+                if j > i:
+                    same.append(d)
+            elif closest_other is None or d < closest_other:
+                closest_other = d
+        if closest_other is not None:
+            different.append(closest_other)
+    return {"same": same, "different": different}
 
 
 def find_near_duplicates(root: str | Path, query_splits: tuple[str, ...] = ("valid", "test"),
                          reference_split: str = "train",
-                         max_distance: int = 6) -> list[dict]:
+                         max_distance: int = 6, size: int = 8) -> list[dict]:
     """Find evaluation images that look like a training image, by content.
 
     Unlike :func:`find_cross_split_overlaps`, this ignores file names, so it
@@ -349,17 +394,27 @@ def find_near_duplicates(root: str | Path, query_splits: tuple[str, ...] = ("val
         root: Dataset root folder.
         query_splits: Splits to check (normally the evaluation splits).
         reference_split: Split to compare against (normally ``"train"``).
-        max_distance: Largest Hamming distance (out of 64 bits) counted as a
-            match. Lower is stricter. Inspect the flagged pairs and report the
-            threshold used.
+        max_distance: Largest Hamming distance counted as a match (out of
+            ``size * size`` bits). Choose it with :func:`hash_calibration`
+            rather than guessing: with ``size=8`` the trays in this dataset are
+            so alike that different trays are often only 2-5 bits apart.
+        size: Hash grid size passed to :func:`dhash`.
 
     Returns:
         One dict per flagged pair, sorted by distance: ``{"query": Path,
         "match": Path, "query_split": str, "match_split": str,
         "distance": int}``. Each query image is reported once, with its
         closest match.
+
+    Note:
+        Kept as a baseline. On this dataset it does **not** separate duplicates
+        from different trays: every tray is photographed with the same camera,
+        layout and background, so the 8 x 8 greyscale gradient pattern is
+        almost the same for all images. 179 of 200 valid/test images had a
+        "match" within 6 bits, and none of the closest pairs inspected were
+        the same tray. Use :func:`nearest_by_correlation` instead.
     """
-    hashes = {s: [(p, dhash(p)) for p in list_images(root, s)]
+    hashes = {s: [(p, dhash(p, size)) for p in list_images(root, s)]
               for s in (reference_split, *query_splits)}
 
     flagged = []
@@ -377,6 +432,80 @@ def find_near_duplicates(root: str | Path, query_splits: tuple[str, ...] = ("val
             if best:
                 flagged.append(best)
     return sorted(flagged, key=lambda r: r["distance"])
+
+
+def image_vectors(paths: list[Path], size: tuple[int, int] = (96, 72)) -> np.ndarray:
+    """Turn images into normalised greyscale vectors for correlation.
+
+    Each image is converted to greyscale, resized to ``size`` (width, height),
+    flattened, shifted to zero mean and scaled to unit length. The dot product
+    of two such vectors is then their Pearson correlation coefficient, which is
+    unchanged by any brightness offset or contrast scaling. That makes it
+    insensitive to the exposure augmentation, while it still compares the
+    actual pixel layout (unlike an 8 x 8 hash).
+
+    Args:
+        paths: Image files.
+        size: Resize target as (width, height). The default keeps the 4:3
+            aspect ratio of the 720 x 540 images at 6,912 pixels each.
+
+    Returns:
+        Array of shape ``(len(paths), width * height)``, dtype float32.
+        A completely flat image gives an all-zero row.
+    """
+    vecs = np.empty((len(paths), size[0] * size[1]), dtype=np.float32)
+    for i, p in enumerate(paths):
+        v = np.asarray(Image.open(p).convert("L").resize(size, Image.BILINEAR),
+                       dtype=np.float32).ravel()
+        v -= v.mean()
+        norm = np.linalg.norm(v)
+        vecs[i] = v / norm if norm > 0 else 0.0
+    return vecs
+
+
+def nearest_by_correlation(root: str | Path,
+                           query_splits: tuple[str, ...] = ("valid", "test"),
+                           reference_split: str = "train",
+                           size: tuple[int, int] = (96, 72)) -> list[dict]:
+    """Find, for every evaluation image, the most similar other image.
+
+    Similarity is the Pearson correlation of the normalised greyscale images
+    (see :func:`image_vectors`): 1.0 means identical apart from brightness and
+    contrast. All pairs are computed at once as a matrix product, so this is
+    fast even for thousands of images.
+
+    Each query image is compared with the reference split and with any later
+    query split (so valid is compared with test once, not twice).
+
+    Args:
+        root: Dataset root folder.
+        query_splits: Splits to check (normally the evaluation splits).
+        reference_split: Split to compare against (normally ``"train"``).
+        size: Resize target passed to :func:`image_vectors`.
+
+    Returns:
+        One dict per query image, sorted from most to least similar:
+        ``{"query": Path, "match": Path, "query_split": str,
+        "match_split": str, "correlation": float}``. Choose a threshold from
+        the distribution of ``correlation`` and inspect the pairs above it.
+    """
+    paths = {s: list_images(root, s) for s in (reference_split, *query_splits)}
+    vecs = {s: image_vectors(p, size) for s, p in paths.items()}
+
+    results = []
+    for i, qs in enumerate(query_splits):
+        targets = [reference_split, *query_splits[i + 1:]]
+        tpaths = [(ts, p) for ts in targets for p in paths[ts]]
+        if not tpaths or not paths[qs]:
+            continue
+        tvecs = np.vstack([vecs[ts] for ts in targets])
+        sim = vecs[qs] @ tvecs.T                      # (n_query, n_target) correlations
+        best = sim.argmax(axis=1)
+        for qi, ti in enumerate(best):
+            ts, tp = tpaths[ti]
+            results.append({"query": paths[qs][qi], "match": tp, "query_split": qs,
+                            "match_split": ts, "correlation": float(sim[qi, ti])})
+    return sorted(results, key=lambda r: -r["correlation"])
 
 
 # --------------------------------------------------------------------------

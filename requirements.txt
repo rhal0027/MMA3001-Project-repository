@@ -4,6 +4,8 @@ torch>=2.2
 numpy
 pandas
 matplotlib
+pillow
+pyyaml
 opencv-python-headless
 pytest
 pdoc

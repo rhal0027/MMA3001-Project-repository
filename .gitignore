@@ -218,3 +218,29 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ==== Project-specific ====
+
+# Data (downloaded via script, not committed)
+data/raw/*
+!data/raw/.gitkeep
+data/quarantine/
+*.zip
+*.csv
+*.parquet
+*.xlsx
+!results/*.csv
+
+# Training outputs and model weights
+runs/
+models/
+*.pt
+*.onnx
+*.joblib
+!results/best.pt
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,6 @@
+class,test_boxes,precision,recall,mAP50,mAP50_95
+loose-meat,3,0.447,0.333,0.59,0.292
+packaging-error,23,0.441,0.478,0.416,0.11
+twisted-meat,4,1.0,0.0,0.126,0.088
+unsealed,49,0.724,0.878,0.872,0.6
+ALL,79,0.653,0.422,0.501,0.273

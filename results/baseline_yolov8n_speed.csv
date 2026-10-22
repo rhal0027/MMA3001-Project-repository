@@ -1,0 +1,3 @@
+device,n_items,repeats,mean_ms,std_ms,median_ms,p95_ms,min_ms,max_ms,trays_per_min,gpu,gflops,params_M
+cuda:0,80,3,11.81,1.34,11.45,14.95,10.37,18.49,5239,Tesla T4,8.09,3.01
+cpu,20,3,109.48,7.16,107.79,121.37,100.7,142.65,557,Tesla T4,8.09,3.01

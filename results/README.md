@@ -28,3 +28,17 @@ Criteria: **clean** = no visible defect; **missed_defect** = visible defect with
 |---|---|
 | `unlabelled_review_test_seed0.csv` | All 12 unlabelled test images: 9 clean, 3 missed defects (25%, 95% CI 9–53%) |
 | `unlabelled_review_train_seed1.csv` | Random sample (seed 1) of 24 of the 684 unlabelled train images: 24 clean (0%, 95% CI 0–14%) |
+
+## Baseline: YOLOv8n, 640 px (`02_baseline.ipynb`, 22 Oct 2026)
+
+Trained up to 50 epochs, seed 0; early stopping ended training at epoch 40 (best validation mAP around epoch 25).
+
+| File | Contents |
+|---|---|
+| `baseline_yolov8n_training_curves.png` | Losses and validation metrics per epoch |
+| `baseline_yolov8n_test_detection.csv` | Per-class precision, recall, mAP50, mAP50-95 on test. Classes with 3–4 test boxes are not meaningful on their own |
+| `baseline_yolov8n_confusion_matrix.png` | Normalised confusion matrix on test |
+| `baseline_yolov8n_predictions.csv` | Highest detection confidence per valid/test image, with original and corrected ground truth |
+| `baseline_yolov8n_tray_passfail.csv` | Pass/fail errors at the threshold chosen on validation (this run used the original rule: 0 false passes, sweep from 0.05; no threshold met it, so the lowest, 0.05, was used) |
+| `baseline_yolov8n_threshold_tradeoff.png` | False-pass and false-fail rates against threshold |
+| `baseline_yolov8n_speed.csv` | ms per image on GPU and CPU, GFLOPs, parameters. The `gpu` column records the Colab session's GPU; the `cpu` row ran on the CPU (110 ms vs 11 ms confirms this) |

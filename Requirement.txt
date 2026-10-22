@@ -1,9 +1,0 @@
-ultralytics==8.3.40
-roboflow==1.1.50
-torch>=2.2
-numpy
-pandas
-matplotlib
-opencv-python-headless
-pytest
-pdoc

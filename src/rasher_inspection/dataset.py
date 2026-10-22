@@ -30,7 +30,9 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import yaml
+from PIL import Image
 
 SPLITS: tuple[str, ...] = ("train", "valid", "test")
 """Split folder names used by the Roboflow YOLO export."""
@@ -269,6 +271,10 @@ def find_cross_split_overlaps(root: str | Path) -> list[dict]:
     happen to share a file name are also reported. Check each pair visually
     (see :func:`rasher_inspection.visualise.show_pairs`) before removing it.
 
+    In the version 4 export, all 13 file-name overlaps were confirmed by eye to
+    be different trays, so file names alone are not a reliable leakage check.
+    Use :func:`find_near_duplicates` to compare image content instead.
+
     Args:
         root: Dataset root folder.
 
@@ -294,6 +300,83 @@ def find_cross_split_overlaps(root: str | Path) -> list[dict]:
                 "images": {s: by_split[s][src] for s in present},
             })
     return overlaps
+
+
+def dhash(image_path: str | Path, size: int = 8) -> int:
+    """Compute a difference hash (dHash) fingerprint of an image.
+
+    The image is converted to greyscale and shrunk to ``(size + 1) x size``
+    pixels. Each bit records whether a pixel is brighter than its right-hand
+    neighbour, giving ``size * size`` bits. Because only the *direction* of
+    brightness change is kept, the hash barely changes under the exposure and
+    saturation augmentations used in this dataset, but differs for different
+    trays.
+
+    Args:
+        image_path: Image file.
+        size: Hash grid size; 8 gives a 64-bit hash.
+
+    Returns:
+        The hash as a Python integer.
+    """
+    grey = Image.open(image_path).convert("L").resize((size + 1, size), Image.LANCZOS)
+    a = np.asarray(grey, dtype=np.int16)
+    bits = (a[:, 1:] > a[:, :-1]).flatten()
+    return int("".join("1" if b else "0" for b in bits), 2)
+
+
+def hamming(a: int, b: int) -> int:
+    """Number of differing bits between two hashes.
+
+    Example:
+        >>> hamming(0b1011, 0b0010)
+        2
+    """
+    return bin(a ^ b).count("1")
+
+
+def find_near_duplicates(root: str | Path, query_splits: tuple[str, ...] = ("valid", "test"),
+                         reference_split: str = "train",
+                         max_distance: int = 6) -> list[dict]:
+    """Find evaluation images that look like a training image, by content.
+
+    Unlike :func:`find_cross_split_overlaps`, this ignores file names, so it
+    catches the same tray saved under a different name and ignores different
+    trays that share a name. Each query image is compared with every reference
+    image (and with the other query splits) using :func:`dhash`.
+
+    Args:
+        root: Dataset root folder.
+        query_splits: Splits to check (normally the evaluation splits).
+        reference_split: Split to compare against (normally ``"train"``).
+        max_distance: Largest Hamming distance (out of 64 bits) counted as a
+            match. Lower is stricter. Inspect the flagged pairs and report the
+            threshold used.
+
+    Returns:
+        One dict per flagged pair, sorted by distance: ``{"query": Path,
+        "match": Path, "query_split": str, "match_split": str,
+        "distance": int}``. Each query image is reported once, with its
+        closest match.
+    """
+    hashes = {s: [(p, dhash(p)) for p in list_images(root, s)]
+              for s in (reference_split, *query_splits)}
+
+    flagged = []
+    for i, qs in enumerate(query_splits):
+        # Compare against train, plus later query splits (valid vs test once).
+        targets = [reference_split, *query_splits[i + 1:]]
+        for qp, qh in hashes[qs]:
+            best = None
+            for ts in targets:
+                for tp, th in hashes[ts]:
+                    d = hamming(qh, th)
+                    if d <= max_distance and (best is None or d < best["distance"]):
+                        best = {"query": qp, "match": tp, "query_split": qs,
+                                "match_split": ts, "distance": d}
+            if best:
+                flagged.append(best)
+    return sorted(flagged, key=lambda r: r["distance"])
 
 
 # --------------------------------------------------------------------------

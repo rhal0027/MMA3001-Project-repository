@@ -86,3 +86,33 @@ def show_pairs(overlaps: list[dict], class_names: list[str] | None = None):
             ax.set_title(f"{split}: {o['source'][:30]}", fontsize=8)
     fig.tight_layout()
     return fig
+
+
+def show_matches(matches: list[dict], class_names: list[str] | None = None,
+                 max_rows: int = 20):
+    """Show near-duplicate pairs side by side, closest first.
+
+    Args:
+        matches: Output of
+            :func:`rasher_inspection.dataset.find_near_duplicates`.
+        class_names: If given, boxes are labelled with class names.
+        max_rows: Show at most this many pairs.
+
+    Returns:
+        The matplotlib figure, or ``None`` if there are no matches.
+    """
+    if not matches:
+        print("No near-duplicates found.")
+        return None
+    rows = matches[:max_rows]
+    fig, axes = plt.subplots(len(rows), 2, figsize=(10, 3.6 * len(rows)), squeeze=False)
+    for i, (row, m) in enumerate(zip(axes, rows)):
+        for ax, key, split in ((row[0], "query", m["query_split"]),
+                               (row[1], "match", m["match_split"])):
+            ax.axis("off")
+            ax.imshow(Image.open(m[key]))
+            _draw_boxes(ax, Path(m[key]), class_names)
+            ax.set_title(f"{i}: {split}: {Path(m[key]).name[:28]}  (d={m['distance']})",
+                         fontsize=8)
+    fig.tight_layout()
+    return fig

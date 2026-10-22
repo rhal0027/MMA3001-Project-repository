@@ -114,3 +114,40 @@ def test_write_review_sheet(tmp_path):
     lines = out.read_text().splitlines()
     assert lines[0] == "index,image,verdict,notes"
     assert lines[2].startswith("1,b.jpg")
+
+
+# --- content-based duplicate check -----------------------------------------
+
+def _noise_image(path: Path, seed: int, brightness: float = 1.0) -> None:
+    """Save a random-texture image; same seed = same tray, brightness = augmentation."""
+    import numpy as np
+    from PIL import Image
+    rng = np.random.default_rng(seed)
+    a = rng.integers(0, 200, size=(54, 72, 3)).astype(float) * brightness
+    Image.fromarray(np.clip(a, 0, 255).astype("uint8")).save(path)
+
+
+def test_dhash_survives_brightness_change_but_not_new_image(tmp_path):
+    _noise_image(tmp_path / "a.png", seed=1)
+    _noise_image(tmp_path / "a_bright.png", seed=1, brightness=1.25)
+    _noise_image(tmp_path / "b.png", seed=2)
+    a, a2, b = (ds.dhash(tmp_path / n) for n in ("a.png", "a_bright.png", "b.png"))
+    assert ds.hamming(a, a2) <= 2
+    assert ds.hamming(a, b) > 15
+
+
+def test_find_near_duplicates_ignores_names_and_matches_content(tmp_path):
+    for split in ("train", "valid", "test"):
+        (tmp_path / split / "images").mkdir(parents=True)
+    # Same tray, different names, brightened copy in test -> should be flagged.
+    _noise_image(tmp_path / "train" / "images" / "X_jpg.rf.1.png", seed=10)
+    _noise_image(tmp_path / "test" / "images" / "Y_jpg.rf.2.png", seed=10, brightness=1.2)
+    # Different trays sharing a name -> should NOT be flagged.
+    _noise_image(tmp_path / "train" / "images" / "Z_jpg.rf.3.png", seed=20)
+    _noise_image(tmp_path / "valid" / "images" / "Z_jpg.rf.4.png", seed=30)
+
+    matches = ds.find_near_duplicates(tmp_path, max_distance=6)
+    assert len(matches) == 1
+    assert matches[0]["query"].name == "Y_jpg.rf.2.png"
+    assert matches[0]["match"].name == "X_jpg.rf.1.png"
+    assert matches[0]["query_split"] == "test" and matches[0]["match_split"] == "train"

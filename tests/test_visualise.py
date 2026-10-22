@@ -24,3 +24,11 @@ def test_show_pairs_one_row_per_overlap(fake_root):
 
 def test_show_pairs_handles_no_overlaps():
     assert vis.show_pairs([]) is None
+
+
+def test_show_matches_handles_empty_and_pairs(fake_root):
+    assert vis.show_matches([]) is None
+    imgs = ds.list_images(fake_root, "test")
+    m = [{"query": imgs[0], "match": imgs[1], "query_split": "test",
+          "match_split": "train", "distance": 0}]
+    assert len(vis.show_matches(m).axes) == 2

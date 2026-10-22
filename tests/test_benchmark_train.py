@@ -52,3 +52,13 @@ def test_detection_table_from_metrics_object():
     rows = detection_table(SimpleNamespace(box=box), ["a", "b", "c", "d"])
     assert [r["class"] for r in rows] == ["b", "d", "ALL"]
     assert rows[1]["mAP50"] == 0.85 and rows[-1]["mAP50_95"] == 0.35
+
+
+def test_run_status(tmp_path):
+    from rasher_inspection.train import run_status
+    run = tmp_path / "run"
+    assert run_status(run) == "missing"
+    (run / "weights").mkdir(parents=True)
+    (run / "weights" / "last.pt").write_bytes(b"x")
+    assert run_status(run, loader=lambda p: {"epoch": 23}) == "incomplete"
+    assert run_status(run, loader=lambda p: {"epoch": -1}) == "complete"

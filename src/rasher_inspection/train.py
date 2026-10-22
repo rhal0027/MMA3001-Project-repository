@@ -129,3 +129,52 @@ def detection_table(metrics, names: list[str]) -> list[dict]:
     rows.append({"class": "ALL", "precision": float(b.mp), "recall": float(b.mr),
                  "mAP50": float(b.map50), "mAP50_95": float(b.map)})
     return rows
+
+
+def _torch_load(path: Path) -> dict:
+    import torch
+    return torch.load(path, map_location="cpu", weights_only=False)
+
+
+def run_status(run_dir: str | Path, loader=None) -> str:
+    """Say whether a training run is missing, interrupted or finished.
+
+    Ultralytics saves ``weights/last.pt`` every epoch. When training ends
+    normally (all epochs, or early stopping) it strips the optimiser and sets
+    the checkpoint's ``epoch`` to -1. An interrupted run (e.g. a Colab
+    disconnect) still has a ``best.pt``, so checking for that file alone would
+    wrongly treat it as finished.
+
+    Args:
+        run_dir: The run folder (``<project>/<name>``).
+        loader: Function that loads a checkpoint into a dict. Defaults to
+            ``torch.load``; tests pass a stand-in.
+
+    Returns:
+        ``"missing"`` (no checkpoint), ``"incomplete"`` (can be resumed) or
+        ``"complete"``.
+    """
+    last = Path(run_dir) / "weights" / "last.pt"
+    if not last.exists():
+        return "missing"
+    ckpt = (loader or _torch_load)(last)
+    return "complete" if ckpt.get("epoch", -1) == -1 else "incomplete"
+
+
+def resume_yolo(run_dir: str | Path):
+    """Continue an interrupted training run from its last saved epoch.
+
+    All settings (data, epochs, image size, seed, cache) are read back from
+    the checkpoint, so the result is the same run, not a new one.
+
+    Args:
+        run_dir: Folder of a run whose :func:`run_status` is ``"incomplete"``.
+
+    Returns:
+        The ``ultralytics.YOLO`` model after training finishes.
+    """
+    from ultralytics import YOLO
+
+    yolo = YOLO(Path(run_dir) / "weights" / "last.pt")
+    yolo.train(resume=True)
+    return yolo

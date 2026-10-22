@@ -172,3 +172,39 @@ def test_find_near_duplicates_accepts_larger_hash(tmp_path):
     _noise_image(tmp_path / "test" / "images" / "Y.png", seed=10, brightness=1.2)
     m = ds.find_near_duplicates(tmp_path, max_distance=20, size=16)
     assert len(m) == 1
+
+
+# --- video-frame neighbours and correlation ---------------------------------
+
+def test_frame_number_parses_video_and_frame():
+    assert ds.frame_number("a/frame_with_red_62_jpg.rf.x.jpg") == ("frame_with_red", 62)
+    assert ds.frame_number("IMG_0123_jpg.rf.y.jpg") == ("IMG", 123)
+    assert ds.frame_number("no_number.jpg") is None
+
+
+def test_frame_gaps_finds_nearest_training_frame(tmp_path):
+    for split in ("train", "valid", "test"):
+        (tmp_path / split / "images").mkdir(parents=True)
+    for f in (100, 110, 300):
+        _noise_image(tmp_path / "train" / "images" / f"frame_with_red_{f}_jpg.rf.a.png", seed=f)
+    _noise_image(tmp_path / "test" / "images" / "frame_with_red_108_jpg.rf.b.png", seed=1)
+    _noise_image(tmp_path / "valid" / "images" / "frame_with_red_200_jpg.rf.c.png", seed=2)
+    _noise_image(tmp_path / "valid" / "images" / "other_5_jpg.rf.d.png", seed=3)
+
+    gaps = ds.frame_gaps(tmp_path)
+    assert [(g["frame"], g["nearest_frame"], g["gap"]) for g in gaps] == \
+        [(108, 110, 2), (200, 110, 90), (5, None, None)]   # sorted, unknown video last
+
+
+def test_nearest_by_correlation_ignores_brightness(tmp_path):
+    for split in ("train", "valid", "test"):
+        (tmp_path / split / "images").mkdir(parents=True)
+    _noise_image(tmp_path / "train" / "images" / "A.png", seed=1)
+    _noise_image(tmp_path / "train" / "images" / "B.png", seed=2)
+    _noise_image(tmp_path / "test" / "images" / "A_copy.png", seed=1, brightness=1.3)
+    _noise_image(tmp_path / "valid" / "images" / "C.png", seed=3)
+
+    res = ds.nearest_by_correlation(tmp_path, size=(36, 27))
+    assert res[0]["query"].name == "A_copy.png" and res[0]["match"].name == "A.png"
+    assert res[0]["correlation"] > 0.95
+    assert res[-1]["correlation"] < 0.5          # unrelated image

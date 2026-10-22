@@ -23,9 +23,11 @@ split, which would leak test information into training.
 
 from __future__ import annotations
 
+import bisect
 import collections
 import csv
 import random
+import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -169,6 +171,82 @@ def source_id(image_path: str | Path) -> str:
     """
     name = Path(image_path).name
     return name.split(".rf.")[0] if ".rf." in name else Path(name).stem
+
+
+_FRAME_RE = re.compile(r"^(?P<video>.*?)_?(?P<frame>\d+)_(?:jpe?g|png|bmp)$", re.IGNORECASE)
+
+
+def frame_number(image_path: str | Path) -> tuple[str, int] | None:
+    """Split a source id into a video prefix and a frame number.
+
+    The images in this dataset are frames extracted from production-line
+    video, named like ``frame_with_red_4088_jpg.rf.<hash>.jpg``.
+
+    Args:
+        image_path: Image path or file name.
+
+    Returns:
+        ``(video_prefix, frame)``, or ``None`` if the name has no frame number.
+
+    Example:
+        >>> frame_number("frame_with_red_4088_jpg.rf.6a1b.jpg")
+        ('frame_with_red', 4088)
+        >>> frame_number("photo.jpg") is None
+        True
+    """
+    m = _FRAME_RE.match(source_id(image_path))
+    return (m["video"], int(m["frame"])) if m else None
+
+
+def frame_gaps(root: str | Path, query_splits: tuple[str, ...] = ("valid", "test"),
+               reference_split: str = "train") -> list[dict]:
+    """For each evaluation frame, find the closest training frame number.
+
+    Consecutive video frames show the same tray moved slightly along the line,
+    so a test frame whose neighbours (e.g. frame +/- 2) are in training is
+    close to having been seen, even though it is not an exact duplicate.
+
+    Caution: the same prefix may cover several recordings whose frame numbers
+    restart (the 13 file-name clashes were different trays), so a small gap is
+    a reason to *inspect* a pair, not proof that it is the same tray.
+
+    Args:
+        root: Dataset root folder.
+        query_splits: Splits to check.
+        reference_split: Split to compare against.
+
+    Returns:
+        One dict per query image with a frame number, sorted by gap:
+        ``{"query": Path, "query_split": str, "video": str, "frame": int,
+        "nearest_frame": int | None, "nearest_image": Path | None,
+        "gap": int | None}``. ``gap`` is ``None`` if no training frame shares
+        the video prefix.
+    """
+    ref: dict[str, list[tuple[int, Path]]] = collections.defaultdict(list)
+    for p in list_images(root, reference_split):
+        fn = frame_number(p)
+        if fn:
+            ref[fn[0]].append((fn[1], p))
+    for v in ref.values():
+        v.sort()
+
+    out = []
+    for qs in query_splits:
+        for p in list_images(root, qs):
+            fn = frame_number(p)
+            if fn is None:
+                continue
+            video, frame = fn
+            frames = ref.get(video, [])
+            row = {"query": p, "query_split": qs, "video": video, "frame": frame,
+                   "nearest_frame": None, "nearest_image": None, "gap": None}
+            if frames:
+                k = bisect.bisect_left(frames, (frame,))
+                cands = frames[max(0, k - 1):k + 1]
+                f, img = min(cands, key=lambda c: abs(c[0] - frame))
+                row.update(nearest_frame=f, nearest_image=img, gap=abs(f - frame))
+            out.append(row)
+    return sorted(out, key=lambda r: (r["gap"] is None, r["gap"] or 0))
 
 
 def read_labels(label_path: str | Path) -> list[Box]:

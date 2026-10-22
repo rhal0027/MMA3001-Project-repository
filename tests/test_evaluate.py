@@ -71,3 +71,19 @@ def test_choose_threshold_prefers_no_false_passes(toy):
     best = ev.choose_threshold(sweep, max_false_pass=0.25)
     assert best["threshold"] == 0.2 and best["false_fail_rate"] == 0.5
     assert ev.choose_threshold(sweep[-1:], max_false_pass=0.0) is None
+
+
+def test_operating_point_chooses_on_valid_reports_on_test(toy):
+    truth, conf = toy
+    op = ev.operating_point(truth, conf, truth, conf, max_false_pass=0.25,
+                            thresholds=[0.0, 0.2, 0.5])
+    assert op["threshold"] == 0.2 and op["met_limit"]
+    assert op["test"]["false_pass_rate"] == 0.25
+
+
+def test_operating_point_falls_back_when_limit_unreachable(toy):
+    truth, conf = toy
+    op = ev.operating_point(truth, conf, truth, conf, max_false_pass=0.0,
+                            thresholds=[0.2, 0.5])
+    assert not op["met_limit"]
+    assert op["threshold"] == 0.2          # fewest false passes available

@@ -183,3 +183,35 @@ def choose_threshold(sweep: list[dict], max_false_pass: float = 0.0) -> dict | N
     if not ok:
         return None
     return min(ok, key=lambda s: (s["false_fail_rate"], -s["threshold"]))
+
+
+def operating_point(truth_val: dict[Path, bool], conf_val: dict[Path, float],
+                    truth_test: dict[Path, bool], conf_test: dict[Path, float],
+                    max_false_pass: float, thresholds=None) -> dict:
+    """Choose a threshold on validation and report it on test.
+
+    Applies :func:`choose_threshold` to the validation sweep. If no threshold
+    meets ``max_false_pass``, the threshold with the fewest validation false
+    passes is used and ``met_limit`` is ``False``.
+
+    Args:
+        truth_val: Validation ground truth (:func:`tray_truth`).
+        conf_val: Validation max confidence per image.
+        truth_test: Test ground truth.
+        conf_test: Test max confidence per image.
+        max_false_pass: Highest acceptable validation false-pass rate.
+        thresholds: Thresholds to sweep (see :func:`threshold_sweep`).
+
+    Returns:
+        ``{"threshold", "met_limit", "valid": tray_errors(...),
+        "test": tray_errors(...)}``.
+    """
+    sweep = threshold_sweep(truth_val, conf_val, thresholds)
+    chosen = choose_threshold(sweep, max_false_pass)
+    met = chosen is not None
+    if not met:
+        chosen = min(sweep, key=lambda s: (s["false_pass_rate"], s["false_fail_rate"]))
+    t = chosen["threshold"]
+    return {"threshold": t, "met_limit": met,
+            "valid": tray_errors(truth_val, conf_val, t),
+            "test": tray_errors(truth_test, conf_test, t)}

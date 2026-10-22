@@ -41,3 +41,14 @@ def test_write_data_yaml_missing_split(tmp_path):
     (tmp_path / "data.yaml").write_text("names: [a]\n")
     with pytest.raises(FileNotFoundError):
         write_data_yaml(tmp_path)
+
+
+def test_detection_table_from_metrics_object():
+    from types import SimpleNamespace
+    from rasher_inspection.train import detection_table
+    box = SimpleNamespace(ap_class_index=[1, 3], p=[0.5, 0.9], r=[0.4, 0.8],
+                          ap50=[0.3, 0.85], ap=[0.1, 0.6],
+                          mp=0.7, mr=0.6, map50=0.575, map=0.35)
+    rows = detection_table(SimpleNamespace(box=box), ["a", "b", "c", "d"])
+    assert [r["class"] for r in rows] == ["b", "d", "ALL"]
+    assert rows[1]["mAP50"] == 0.85 and rows[-1]["mAP50_95"] == 0.35

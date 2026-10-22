@@ -106,3 +106,26 @@ def predict_split(model, root: str | Path, split: str = "test", conf: float = 0.
         out.append(ImagePrediction(img, r.boxes.cls.int().tolist(),
                                    r.boxes.conf.tolist()))
     return out
+
+
+def detection_table(metrics, names: list[str]) -> list[dict]:
+    """Convert Ultralytics detection metrics into one row per class plus ALL.
+
+    Args:
+        metrics: The object returned by ``YOLO.val()``. Only ``metrics.box``
+            is used (``ap_class_index``, ``p``, ``r``, ``ap50``, ``ap``,
+            ``mp``, ``mr``, ``map50``, ``map``).
+        names: Class names indexed by class id.
+
+    Returns:
+        Rows ``{"class", "precision", "recall", "mAP50", "mAP50_95"}``.
+        Classes with no ground-truth boxes in the split are absent, as in
+        Ultralytics; the last row is ``"ALL"``.
+    """
+    b = metrics.box
+    rows = [{"class": names[c], "precision": float(b.p[i]), "recall": float(b.r[i]),
+             "mAP50": float(b.ap50[i]), "mAP50_95": float(b.ap[i])}
+            for i, c in enumerate(b.ap_class_index)]
+    rows.append({"class": "ALL", "precision": float(b.mp), "recall": float(b.mr),
+                 "mAP50": float(b.map50), "mAP50_95": float(b.map)})
+    return rows

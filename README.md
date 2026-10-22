@@ -6,6 +6,7 @@ Automated inspection of packaged pork rasher trays: detection and localisation o
 |---|---|---|
 | `01_data_audit.ipynb` | Class balance, leakage checks, label-quality review | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rhal0027/MMA3001-Project-repository/blob/main/notebooks/01_data_audit.ipynb) |
 | `02_baseline.ipynb` | Train YOLOv8n; detection metrics, tray pass/fail, speed | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rhal0027/MMA3001-Project-repository/blob/main/notebooks/02_baseline.ipynb) |
+| `03_compare.ipynb` | Compare model size and input resolution; FP16 and ONNX inference | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/rhal0027/MMA3001-Project-repository/blob/main/notebooks/03_compare.ipynb) |
 
 > Work in progress for MMA3001 (Numerical Methods and Machine Learning).
 

@@ -1,0 +1,4 @@
+experiment,model,imgsz,epochs_trained,params_M,gflops,val_mAP50,val_mAP50_95,test_mAP50,test_mAP50_95,test_unsealed_mAP50,test_packaging_mAP50,test_packaging_recall,threshold,threshold_met_limit,val_false_pass,test_false_pass,val_false_fail,test_false_fail,gpu_ms,cpu_ms
+baseline_yolov8n,yolov8n,640,40,3.01,8.1,0.629,0.391,0.501,0.273,0.872,0.416,0.478,0.12,True,0.019,0.085,0.643,0.222,10.35,98.732
+yolov8s_640,yolov8s,640,37,11.13,28.4,0.466,0.317,0.322,0.168,0.855,0.418,0.391,0.02,True,0.019,0.07,0.643,0.556,15.147,248.534
+yolov8n_960,yolov8n,960,50,3.01,18.2,0.684,0.383,0.568,0.267,0.852,0.418,0.522,0.18,True,0.019,0.07,0.286,0.333,17.303,206.881

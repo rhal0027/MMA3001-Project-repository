@@ -42,3 +42,18 @@ Trained up to 50 epochs, seed 0; early stopping ended training at epoch 40 (best
 | `baseline_yolov8n_tray_passfail.csv` | Pass/fail errors at the threshold chosen on validation (this run used the original rule: 0 false passes, sweep from 0.05; no threshold met it, so the lowest, 0.05, was used) |
 | `baseline_yolov8n_threshold_tradeoff.png` | False-pass and false-fail rates against threshold |
 | `baseline_yolov8n_speed.csv` | ms per image on GPU and CPU, GFLOPs, parameters. The `gpu` column records the Colab session's GPU; the `cpu` row ran on the CPU (110 ms vs 11 ms confirms this) |
+
+## Model comparison and inference optimisation (`03_compare.ipynb`, 24 Oct 2026)
+
+Colab: Tesla T4, Python 3.13, PyTorch 2.11, Ultralytics 8.3.40. One training run (seed 0) per configuration.
+
+| File | Contents |
+|---|---|
+| `compare_summary.csv` | One row per model: size, GFLOPs, validation and test mAP, pass/fail operating point (threshold chosen on validation at ≤ 2% false passes), GPU and CPU ms/image |
+| `compare_per_class.csv` | Per-class precision, recall and mAP for every model, on validation and test |
+| `compare_accuracy_vs_speed.png` | mAP50-95 against GPU and CPU time; validation (used for selection) and test |
+| `optimise_baseline_yolov8n.csv` | Selected model (YOLOv8n, 640 px): FP32 vs FP16 on GPU, PyTorch vs ONNX Runtime on CPU, with test accuracy for each |
+
+Selected by the pre-stated rule (highest validation mAP50-95 within 100 ms/image; within 0.01 the cheaper model wins): **baseline_yolov8n** (0.391 vs 0.383 for YOLOv8n at 960 px and 0.317 for YOLOv8s).
+
+Note: absolute GPU times differ between cells of the same session (baseline FP32: 10.4 ms in the comparison, 19.3 ms in the optimisation table), so speed-ups are only compared within one table.

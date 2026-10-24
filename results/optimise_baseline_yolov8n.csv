@@ -1,0 +1,5 @@
+variant,median_ms,p95_ms,trays_per_min,test_mAP50,test_mAP50_95,speedup,mAP50_95_change,hardware
+PyTorch FP32 GPU,19.289,21.906,3111,0.501,0.273,,,Tesla T4
+PyTorch FP16 GPU,11.866,20.466,5057,0.509,0.273,1.63,0.0,Tesla T4
+PyTorch FP32 CPU,92.327,137.38,650,0.501,0.273,,,x86_64
+ONNX FP32 CPU,99.099,112.159,605,0.425,0.234,0.93,-0.039,x86_64

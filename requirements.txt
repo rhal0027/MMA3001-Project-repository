@@ -9,4 +9,6 @@ pillow
 pyyaml
 opencv-python-headless
 pytest
+pytest-html
+pytest-cov
 pdoc

@@ -1,0 +1,34 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.16, pytest-9.1.1, pluggy-1.7.0
+rootdir: /home/claude/MMA3001-Project-repository
+configfile: pyproject.toml
+testpaths: tests, src
+plugins: platformdirs-4.12.3, anyio-4.15.1, metadata-3.1.1, html-4.2.0, cov-7.1.0
+collected 53 items
+
+tests/test_benchmark_train.py .......                                    [ 13%]
+tests/test_dataset.py .......................                            [ 56%]
+tests/test_evaluate.py .........                                         [ 73%]
+tests/test_stats.py .....                                                [ 83%]
+tests/test_visualise.py ....                                             [ 90%]
+src/rasher_inspection/benchmark.py .                                     [ 92%]
+src/rasher_inspection/dataset.py ...                                     [ 98%]
+src/rasher_inspection/stats.py .                                         [100%]
+
+- generated xml file: /home/claude/MMA3001-Project-repository/reports/junit.xml -
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.13.16-final-0 _______________
+
+Name                                 Stmts   Miss  Cover
+--------------------------------------------------------
+src/rasher_inspection/__init__.py        1      0   100%
+src/rasher_inspection/benchmark.py      29      2    93%
+src/rasher_inspection/dataset.py       230      9    96%
+src/rasher_inspection/evaluate.py       57      0   100%
+src/rasher_inspection/stats.py          10      0   100%
+src/rasher_inspection/train.py          48     18    62%
+src/rasher_inspection/visualise.py      63      2    97%
+--------------------------------------------------------
+TOTAL                                  438     31    93%
+- Generated html report: file:///home/claude/MMA3001-Project-repository/reports/test_report.html -
+============================== 53 passed in 1.25s ==============================

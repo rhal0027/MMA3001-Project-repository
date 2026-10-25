@@ -4,7 +4,7 @@ Automated inspection of packaged pork rasher trays: detection and localisation o
 
 MMA3001 Numerical Methods and Machine Learning, individual project (2026). Author: Rory Hallinan-Johns 36253820
 
-Contents: Engineering Problem, Key results, Repository structure, Notebooks, Installation (local), Documentation, Tests, Data, Ai use, licence
+**Contents:** Engineering Problem, Key results, Repository structure, Notebooks, Installation (local), Documentation, Tests, Data, Ai use, licence
 
 ## Engineering problem
 

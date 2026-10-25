@@ -2,7 +2,9 @@
 
 Automated inspection of packaged pork rasher trays: detection and localisation of packaging and meat-placement defects, with pass/fail classification, validation and speed benchmarking.
 
-MMA3001 Numerical Methods and Machine Learning, individual project (2026).
+MMA3001 Numerical Methods and Machine Learning, individual project (2026). Author: Rory Hallinan-Johns 36253820
+
+Contents: Engineering Problem, Key results, Repository structure, Notebooks, Installation (local), Documentation, Tests, Data, Ai use, licence
 
 ## Engineering problem
 
